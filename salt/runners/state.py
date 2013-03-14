@@ -7,7 +7,7 @@ import salt.overstate
 import salt.output
 
 
-def over(env='base', os_fn=None):
+def over(env='base', os_fn=None, stage=None):
     '''
     Execute an overstate sequence to orchestrate the executing of states
     over a group of systems

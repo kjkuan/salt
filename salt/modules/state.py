@@ -189,7 +189,7 @@ def highstate(test=None, **kwargs):
     return ret
 
 
-def sls(mods, env='base', test=None, exclude=None, **kwargs):
+def sls(mods, env='base', test=None, exclude=None, ordered=False, **kwargs):
     '''
     Execute a set list of state modules from an environment, default
     environment is base
@@ -216,34 +216,44 @@ def sls(mods, env='base', test=None, exclude=None, **kwargs):
     if isinstance(mods, string_types):
         mods = mods.split(',')
 
-    st_.push_active()
-    try:
-        high, errors = st_.render_highstate({env: mods})
+    def call_highstate(mods):
+        st_.push_active()
+        try:
+            high, errors = st_.render_highstate({env: mods})
 
-        if errors:
-            return errors
+            if errors:
+                return errors
 
-        if exclude:
-            if isinstance(exclude, str):
-                exclude = exclude.split(',')
-            if '__exclude__' in high:
-                high['__exclude__'].extend(exclude)
-            else:
-                high['__exclude__'] = exclude
-        ret = st_.state.call_high(high)
-    finally:
-        st_.pop_active()
-    if __salt__['config.option']('state_data', '') == 'terse' or kwargs.get('terse'):
-        ret = _filter_running(ret)
-    serial = salt.payload.Serial(__opts__)
-    cache_file = os.path.join(__opts__['cachedir'], 'sls.p')
-    try:
-        with salt.utils.fopen(cache_file, 'w+') as fp_:
-            serial.dump(ret, fp_)
-    except (IOError, OSError):
-        msg = 'Unable to write to "state.sls" cache file {0}'
-        log.error(msg.format(cache_file))
-    return ret
+            if exclude:
+                if isinstance(exclude, str):
+                    exclude = exclude.split(',')
+                if '__exclude__' in high:
+                    high['__exclude__'].extend(exclude)
+                else:
+                    high['__exclude__'] = exclude
+            ret = st_.state.call_high(high)
+        finally:
+            st_.pop_active()
+        if __salt__['config.option']('state_data', '') == 'terse' or kwargs.get('terse'):
+            ret = _filter_running(ret)
+        serial = salt.payload.Serial(__opts__)
+        cache_file = os.path.join(__opts__['cachedir'], 'sls.p')
+        try:
+            with salt.utils.fopen(cache_file, 'w+') as fp_:
+                serial.dump(ret, fp_)
+        except (IOError, OSError):
+            msg = 'Unable to write to "state.sls" cache file {0}'
+            log.error(msg.format(cache_file))
+        return ret
+
+    if ordered:
+        ret = {}
+        for mod in mods:
+            ret.update(call_highstate([mod]))
+        return ret
+    else:
+        return call_highstate(mods)
+
 
 
 def top(topfn):
@@ -386,5 +396,4 @@ def single(fun, name, test=None, kwval_as='yaml', **kwargs):
         if not key.startswith('__pub_'):
             kwargs[key] = parse_kwval(value)
 
-    return {'{0[state]}_|-{0[__id__]}_|-{0[name]}_|-{0[fun]}'.format(kwargs):
-            st_.call(kwargs)}
+    return {salt.state._gen_tag(kwargs): st_.call(kwargs)}

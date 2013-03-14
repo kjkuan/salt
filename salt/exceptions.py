@@ -77,6 +77,10 @@ class SaltReqTimeoutError(SaltException):
     Thrown when a salt master request call fails to return within the timeout
     '''
 
+class SaltRunnerError(SaltException):
+    '''
+    Generic runner error
+    '''
 
 class EauthAuthenticationError(SaltException):
     '''
@@ -89,3 +93,4 @@ class SaltSystemExit(SystemExit):
     This exception is raised when an unsolvable problem is found. There's
     nothing else to do, salt should just exit.
     '''
+

@@ -115,7 +115,12 @@ class OverState(object):
         arg = ()
         if 'sls' in stage:
             fun = 'state.sls'
-            arg = (','.join(stage['sls']), self.env)
+            sls_names = stage['sls']
+            if 'ordered' in sls_names:
+                sls_names.remove('ordered')   
+                arg = (','.join(sls_names), self.env, 'ordered=True')
+            else:
+                arg = (','.join(sls_names), self.env)
         req_fail = {name: {}}
         if 'require' in stage:
             for req in stage['require']:
@@ -168,7 +173,8 @@ class OverState(object):
                     fun,
                     arg,
                     expr_form='list'):
-                ret.update({minion.keys()[0]: minion[minion.keys()[0]]['ret']})
+                key = iter(minion).next()
+                ret[key] = minion[key]['ret']
             self.over_run[name] = ret
             yield {name: ret}
 
@@ -183,10 +189,19 @@ class OverState(object):
             if not name in self.over_run:
                 self.call_stage(name, stage)
 
-    def stages_iter(self):
+    def stages_iter(self, stage=None):
         '''
         Return an iterator that yields the state call data as it is processed
         '''
+        if stage:
+            if stage not in self.over:
+                raise SaltRunnerError(
+                        'OverState: stage {0} does not exist!'.format(stage))
+            else:
+                stages = [{stage: self.over[stage]}]
+        else:
+            stages = self.over
+
         def yielder(gen_ret):
             if (not isinstance(gen_ret, list)
                     and not isinstance(gen_ret, dict)
@@ -199,7 +214,7 @@ class OverState(object):
 
         self.over_run = {}
         yield self.over
-        for comp in self.over:
+        for comp in stages:
             name = comp.keys()[0]
             stage = comp[name]
             if not name in self.over_run:

@@ -38,7 +38,7 @@ def _gen_tag(low):
     '''
     Generate the running dict tag string from the low data structure
     '''
-    return '{0[state]}_|-{0[__id__]}_|-{0[name]}_|-{0[fun]}'.format(low)
+    return '{0[__sls__]}_{0[state]}-|_{0[__id__]}-|_{0[name]}-|_{0[fun]}'.format(low)
 
 
 def _getargs(func):
